@@ -26,10 +26,12 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.google.android.gms.common.api.ApiException;
@@ -42,6 +44,13 @@ import com.google.android.gms.wallet.PaymentDataRequest;
 import com.google.android.gms.wallet.PaymentMethodToken;
 import com.google.android.gms.wallet.PaymentsClient;
 import com.google.android.gms.wallet.TransactionInfo;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class CheckoutActivity extends Activity {
     // Arbitrarily-picked result code.
@@ -115,7 +124,13 @@ public class CheckoutActivity extends Activity {
                 switch (resultCode) {
                     case Activity.RESULT_OK:
                         PaymentData paymentData = PaymentData.getFromIntent(data);
-                        handlePaymentSuccess(paymentData);
+                            try {
+                                handlePaymentSuccess(paymentData);
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            } catch (AuthFailureError authFailureError) {
+                                authFailureError.printStackTrace();
+                            }
                         break;
                     case Activity.RESULT_CANCELED:
                         // Nothing to here normally - the user simply cancelled without selecting a
@@ -133,7 +148,7 @@ public class CheckoutActivity extends Activity {
         }
     }
 
-    private void handlePaymentSuccess(PaymentData paymentData) {
+    private void handlePaymentSuccess(PaymentData paymentData) throws JSONException, AuthFailureError {
         // PaymentMethodToken contains the payment information, as well as any additional
         // requested information, such as billing and shipping address.
         //
@@ -163,34 +178,86 @@ public class CheckoutActivity extends Activity {
             // Use token.getToken() to get the token string.
             Log.d("PaymentData", "PaymentMethodToken received");
 
-            sendTestRequest(paymentData.getCardInfo().getBillingAddress().getName());
+            sendTestRequest(getRequest(token.getToken()));
         }
     }
 
-    private void sendTestRequest(String name) {
-        // Instantiate the RequestQueue.
+    private JSONObject getRequest(String payLoad) throws JSONException {
+
+        JSONObject payloadObject = new JSONObject(payLoad);
+
+        String signedMessage = payloadObject.get("signedMessage").toString();
+
+        JSONObject signedObject = new JSONObject(signedMessage);
+
+        JSONObject jsonObject = new JSONObject(); // Objeto inteiro
+        jsonObject.put("MerchantOrderId", "6242-642-723");
+
+        JSONObject customerObject = new JSONObject(); // Objeto Customer
+
+        customerObject.put("Name", "Chuck Norris");
+        customerObject.put("Identity", "11225468954");
+        customerObject.put("IdentityType", "CPF");
+
+        jsonObject.put("Customer", customerObject);
+
+        JSONObject paymentObject = new JSONObject(); // Objeto Payment
+
+        paymentObject.put("Type", "CreditCard");
+        paymentObject.put("Amount", "100");
+        paymentObject.put("Provider", "Cielo");
+        paymentObject.put("Installments", "1");
+        paymentObject.put("Currency", "BRL");
+
+        JSONObject walletObject = new JSONObject(); // Objeto Wallet
+
+        walletObject.put("Type", "AndroidPay");
+        walletObject.put("WalletKey", signedObject.get("encryptedMessage"));
+
+        JSONObject additionalDataObject = new JSONObject(); // Objeto Wallet
+        additionalDataObject.put("EphemeralPublicKey",  signedObject.get("ephemeralPublicKey"));
+
+        walletObject.put("AdditionalData", additionalDataObject);
+
+        paymentObject.put("Wallet", walletObject);
+
+        jsonObject.put("Payment", paymentObject);
+
+        return jsonObject;
+    }
+
+    private void sendTestRequest(JSONObject json) throws JSONException, AuthFailureError {
         RequestQueue queue = Volley.newRequestQueue(this);
-        String url = "http://httpbin.org/";
+        String url = "https://apidev.braspag.com.br/v2/sales/";
 
-        final Activity activity = this;
-        final String cardName = name;
 
-        // Request a string response from the provided URL.
-        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
-                new Response.Listener<String>() {
+        JsonObjectRequest jsObjRequest = new JsonObjectRequest
+                (Request.Method.POST, url, json, new Response.Listener<JSONObject>() {
+
                     @Override
-                    public void onResponse(String response) {
-                        // Display the first 500 characters of the response string.
-                        Toast.makeText(activity, "Name=" + cardName + ", Response is: " + response.substring(0, 500), Toast.LENGTH_LONG).show();
+                    public void onResponse(JSONObject response) {
+                        mGooglePayStatusText.setText("bad");
                     }
                 }, new Response.ErrorListener() {
+
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        // TODO Auto-generated method stub
+
+                    }
+                }){
             @Override
-            public void onErrorResponse(VolleyError error) {
-                Toast.makeText(activity, "That didn't work!", Toast.LENGTH_LONG).show();
+            public Map<String, String> getHeaders() {
+                Map<String,String> params = new HashMap<>();
+                params.put("MerchantKey","0123456789012345678901234567890123456789");
+                params.put("MerchantId","94e5ea52-79b0-7dba-1867-be7b081edd97");
+                return params;
             }
-        });
-        // Add the request to the RequestQueue.
-        queue.add(stringRequest);
+        };
+
+        jsObjRequest.getHeaders();
+
+        Request<JSONObject> teste = queue.add(jsObjRequest);
     }
 
     private void handleError(int statusCode) {
@@ -211,7 +278,8 @@ public class CheckoutActivity extends Activity {
         String price = PaymentsUtil.microsToString(mBikeItem.getPriceMicros() + mShippingCost);
 
         TransactionInfo transaction = PaymentsUtil.createTransaction(price);
-        PaymentDataRequest request = PaymentsUtil.createPaymentDataRequest(transaction);
+        //PaymentDataRequest request = PaymentsUtil.createPaymentDataRequest(transaction);
+        PaymentDataRequest request = PaymentsUtil.createPaymentDataRequestDirect(transaction);
         Task<PaymentData> futurePaymentData = mPaymentsClient.loadPaymentData(request);
 
         // Since loadPaymentData may show the UI asking the user to select a payment method, we use

@@ -89,7 +89,7 @@ public class Constants {
     );
 
     // Only used for DIRECT tokenization. Can be removed when using GATEWAY tokenization.
-    public static final String DIRECT_TOKENIZATION_PUBLIC_KEY = "REPLACE_ME";
+    public static final String DIRECT_TOKENIZATION_PUBLIC_KEY = "BNjFUIxdirUNCHTP+hDD04lIv4e45osxCHYdppIyKEpnccGzbYJ/v3TWiumRSC3CHBMbBxnla+VI6RTUq2HGp14=";
 
     private Constants() {
     }
