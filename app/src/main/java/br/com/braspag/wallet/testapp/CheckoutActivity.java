@@ -26,6 +26,12 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -139,6 +145,7 @@ public class CheckoutActivity extends Activity {
         if (token != null) {
             // If the gateway is set to example, no payment information is returned - instead, the
             // token will only consist of "examplePaymentMethodToken".
+            /*
             if (token.getToken().equals("examplePaymentMethodToken")) {
                 AlertDialog alertDialog = new AlertDialog.Builder(this)
                         .setTitle("Warning")
@@ -151,10 +158,39 @@ public class CheckoutActivity extends Activity {
 
             String billingName = paymentData.getCardInfo().getBillingAddress().getName();
             Toast.makeText(this, getString(R.string.payments_show_name, billingName), Toast.LENGTH_LONG).show();
+            */
 
             // Use token.getToken() to get the token string.
             Log.d("PaymentData", "PaymentMethodToken received");
+
+            sendTestRequest(paymentData.getCardInfo().getBillingAddress().getName());
         }
+    }
+
+    private void sendTestRequest(String name) {
+        // Instantiate the RequestQueue.
+        RequestQueue queue = Volley.newRequestQueue(this);
+        String url = "http://httpbin.org/";
+
+        final Activity activity = this;
+        final String cardName = name;
+
+        // Request a string response from the provided URL.
+        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        // Display the first 500 characters of the response string.
+                        Toast.makeText(activity, "Name=" + cardName + ", Response is: " + response.substring(0, 500), Toast.LENGTH_LONG).show();
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Toast.makeText(activity, "That didn't work!", Toast.LENGTH_LONG).show();
+            }
+        });
+        // Add the request to the RequestQueue.
+        queue.add(stringRequest);
     }
 
     private void handleError(int statusCode) {
