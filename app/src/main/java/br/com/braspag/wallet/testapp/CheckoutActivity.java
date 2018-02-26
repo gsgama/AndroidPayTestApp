@@ -228,7 +228,7 @@ public class CheckoutActivity extends Activity {
 
     private void sendTestRequest(JSONObject json) throws JSONException, AuthFailureError {
         RequestQueue queue = Volley.newRequestQueue(this);
-        String url = "https://apidev.braspag.com.br/v2/sales/";
+        String url = "https://apihomolog.braspag.com.br/v2/sales/";
 
 
         JsonObjectRequest jsObjRequest = new JsonObjectRequest
